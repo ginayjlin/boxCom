@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>Boxplot 結果</title>
+<style>
+body { font-family: Arial; padding:20px; }
+img { max-width:400px; margin:10px; border:1px solid #ccc; }
+</style>
+</head>
+<body>
+
+<h2>產生的圖表</h2>
+<a href="{{ url_for('download_zip', file_id=file_id) }}">下載全部 ZIP</a>
+<div>
+  {% for img in images %}
+    <div>
+      <img src="{{ url_for('output_file', file_id=file_id, filename=img) }}">
+      <br><a href="{{ url_for('output_file', file_id=file_id, filename=img) }}" download>下載此圖</a>
+    </div>
+  {% endfor %}
+</div>
+
+</body>
+</html>

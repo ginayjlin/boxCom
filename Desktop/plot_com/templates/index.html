@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Boxplot Generator</title>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<style>
+/* ===== 全局 ===== */
+body { 
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin:0; background:#f0f2f5; color:#333;
+}
+h3 { margin:0 0 10px 0; font-weight:600; color:#222; }
+
+/* ===== 側邊欄 ===== */
+.sidebar {
+    width: 260px;   /* 原 300px 改 260px */
+    position: fixed; top:0; left:0; bottom:0;
+    background:#fdfdfd;
+    padding: 30px 20px;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.06);
+    overflow: hidden; /* 不滾動 */
+}
+
+/* ===== 卡片式區塊 ===== */
+.card {
+    background:#fff;
+    border-radius:10px;
+    padding:20px;
+    box-shadow:0 4px 15px rgba(0,0,0,0.07);
+    margin-bottom:25px;
+}
+
+/* ===== 自訂檔案上傳 ===== */
+.file-upload {
+    position: relative;
+    overflow: hidden;
+    display: inline-block;
+    width:100%;
+}
+
+.file-upload input[type=file] {
+    position: absolute;
+    font-size: 100px;
+    opacity: 0;
+    right: 0; top: 0;
+}
+
+.file-upload-btn {
+    display: inline-block;
+    width:100%;
+    padding:10px 15px;
+    background: linear-gradient(135deg, #4a90e2, #357ABD);
+    color:#fff;
+    text-align:center;
+    font-weight:600;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+    transition: all 0.2s;
+}
+
+.file-upload-btn:hover { transform: translateY(-2px); }
+
+/* 顯示選檔名稱 */
+#file_name_display {
+    margin-top:8px;
+    font-size:13px;
+    color:#555;
+    text-align:center;
+    word-break: break-all;
+}
+
+/* ===== 下拉選單 ===== */
+select {
+    width: 100%;
+    padding:8px 10px;
+    border-radius:6px;
+    border:1px solid #ccc;
+    margin-bottom:15px;
+    background:#fafafa;
+}
+
+/* ===== 按鈕 ===== */
+button {
+    padding:8px 18px;
+    border:none;
+    border-radius:6px;
+    background: #4a90e2;
+    color:#fff;
+    font-weight:600;
+    cursor:pointer;
+    transition: all 0.2s;
+}
+button:hover { background:#357ABD; transform: translateY(-1px); }
+
+/* ===== 按鈕組 ===== */
+.button-group { display:flex; gap:10px; margin-top:10px; }
+
+/* ===== 主區域 ===== */
+.main {
+    margin-left:280px;
+    padding:40px 30px;
+    min-height:100vh;
+}
+
+/* ===== 預覽圖卡片 ===== */
+.preview-container {
+    background:#fff;
+    padding:15px;
+    border-radius:8px;
+    margin-bottom:20px;
+    box-shadow:0 3px 12px rgba(0,0,0,0.06);
+    transition: transform 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative; /* 為 download 按鈕定位 */
+}
+
+.preview-container:hover { transform: translateY(-3px); }
+
+.preview-container img {
+    max-width: 100%;
+    max-height: 500px;   
+    width: auto;
+    height: auto;
+    object-fit: contain;  
+    border-radius:6px;
+    cursor:pointer;
+    display:block;
+}
+
+/* ===== Download Single 按鈕右下角 ===== */
+.preview-container a {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+}
+
+/* ===== Modal ===== */
+#modalOverlay {
+    display:none;
+    position:fixed;
+    top:0; left:0; right:0; bottom:0;
+    background:rgba(0,0,0,0.8);
+    justify-content:center;
+    align-items:center;
+    z-index:999;
+}
+#modalOverlay img { max-width:90%; max-height:90%; border-radius:8px; box-shadow:0 4px 20px rgba(0,0,0,0.4); }
+
+/* ===== Loading ===== */
+#loading {
+    display:none;
+    margin-top:12px;
+    font-weight:bold;
+    color:#4a90e2;
+    text-align:center;
+    font-size:14px;
+}
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="card">
+        <h3>1. Upload File</h3>
+        <div class="file-upload">
+            <button class="file-upload-btn">Choose File</button>
+            <input type="file" id="file_input">
+        </div>
+        <div id="file_name_display">No file selected</div>
+        <button id="upload_btn" style="margin-top:10px;width:100%;">Upload</button>
+    </div>
+
+    <div id="select_cols" class="card" style="display:none;">
+        <h3>2. Select Columns</h3>
+
+        <label>Value Column (Y 值):</label>
+        <select id="value_col"></select>
+
+        <label>X Column (X 值, optional):</label>
+        <select id="l2_col"><option value="">None</option></select>
+
+        <label>Group Column (optional):</label>
+        <select id="group_col"><option value="">None</option></select>
+
+        <div class="button-group">
+            <button id="generate_btn">Generate Plot</button>
+            <a href="#" id="download_all_btn" style="display:none;"><button>Download All</button></a>
+        </div>
+        <div id="loading">Generating plots...</div>
+    </div>
+</div>
+
+<div class="main" id="preview">
+    <h3>Preview Plots</h3>
+</div>
+
+<div id="modalOverlay">
+    <img src="" id="modalImage">
+</div>
+
+<script>
+let currentFileName = "";
+let fileId = "";
+let zipName = "";
+
+// 更新選檔名稱顯示
+$('#file_input').on('change', function(){
+    const file = this.files[0];
+    $('#file_name_display').text(file ? file.name : 'No file selected');
+});
+
+$('.file-upload-btn').click(function(){
+    $('#file_input').click();
+});
+
+$('#upload_btn').click(function(){
+    let file = $('#file_input')[0].files[0];
+    if(!file) { alert("Please select a file"); return; }
+    currentFileName = file.name;
+    let formData = new FormData();
+    formData.append('file', file);
+    $.ajax({
+        url:'/upload_file',
+        type:'POST',
+        data:formData,
+        contentType:false,
+        processData:false,
+        success:function(res){
+            fileId = res.file_id;
+            $('#select_cols').show();
+            $('#group_col').empty().append('<option value="">None</option>');
+            $('#value_col').empty();
+            $('#l2_col').empty().append('<option value="">None</option>');
+            res.columns.forEach(col => {
+                $('#group_col').append(`<option value="${col}">${col}</option>`);
+                $('#value_col').append(`<option value="${col}">${col}</option>`);
+                $('#l2_col').append(`<option value="${col}">${col}</option>`);
+            });
+        }
+    });
+});
+
+$('#generate_btn').click(function(){
+    let group_col = $('#group_col').val();
+    let value_col = $('#value_col').val();
+    let l2_col = $('#l2_col').val();
+
+    if (!value_col) { alert("Please select a value column."); return; }
+
+    $('#loading').show();
+    $('#generate_btn').prop('disabled', true).text('Generating...');
+    
+    $.ajax({
+        url:'/generate_plot',
+        type:'POST',
+        contentType:'application/json',
+        data: JSON.stringify({
+            file_id: fileId,
+            filename: currentFileName,
+            group_col: group_col || null,
+            value_col: value_col,
+            l2_col: l2_col || null,
+            selected_groups: []
+        }),
+        success:function(res){
+            zipName = res.zip_name;
+            $('#preview').empty().append('<h3>Preview Plots</h3>');
+            res.images.forEach(img => {
+                $('#preview').append(
+                    `<div class="preview-container">
+                        <img src="/outputs/${fileId}/${img}" data-filename="${img}">
+                        <a href="/outputs/${fileId}/${img}" download><button>Download Single</button></a>
+                    </div>`
+                );
+            });
+            $('#download_all_btn').attr('href','/download_zip/'+zipName).show();
+        },
+        complete: function() {
+            $('#loading').hide();
+            $('#generate_btn').prop('disabled', false).text('Generate Plot');
+        }
+    });
+});
+
+// Modal
+$(document).on('click', '.preview-container img', function(){
+    $('#modalImage').attr('src', $(this).attr('src'));
+    $('#modalOverlay').css('display','flex');
+});
+$('#modalOverlay').click(function(){
+    $(this).hide();
+});
+</script>
+
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
